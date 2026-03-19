@@ -1,0 +1,63 @@
+FROM ros:jazzy-ros-base-noble
+
+# =========================================================
+# OpenVINS on Ubuntu 24.04 Noble / ROS 2 Jazzy
+# Target host: Raspberry Pi 5 running Debian 13 (Trixie)
+#
+# Build:
+#   docker build -t openvins-jazzy -f Dockerfile_ros2_jazzy_noble .
+#
+# Run (interactive, with workspace and device access):
+#   docker run -it --rm \
+#     --network host --privileged \
+#     -v /dev:/dev \
+#     -v ~/workspace:/workspace \
+#     openvins-jazzy
+# =========================================================
+
+# Core build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-colcon-common-extensions \
+    build-essential gcc g++ gdb clang cmake \
+    git nano tmux ccache \
+    && rm -rf /var/lib/apt/lists/*
+
+# OpenVINS dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libeigen3-dev \
+    libopencv-dev \
+    libboost-system-dev libboost-filesystem-dev \
+    libboost-thread-dev libboost-date-time-dev \
+    libgoogle-glog-dev libgflags-dev \
+    libatlas-base-dev libsuitesparse-dev libceres-dev \
+    python3-dev python3-numpy python3-matplotlib \
+    ros-jazzy-cv-bridge \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build OpenVINS
+RUN mkdir -p /workspace/catkin_ws_ov/src && \
+    cd /workspace/catkin_ws_ov/src && \
+    git clone https://github.com/barakbk-hailo/open_vins/
+
+# Additional ROS deps needed by ov_msckf (added after clone to preserve cache)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-jazzy-image-transport \
+    ros-jazzy-tf2-ros \
+    ros-jazzy-tf2-geometry-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN --mount=type=cache,target=/root/.ccache \
+    /bin/bash -c "source /opt/ros/jazzy/setup.bash && \
+    cd /workspace/catkin_ws_ov && \
+    colcon build --symlink-install --parallel-workers 2 \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+
+# Source ROS 2 + workspace in every new shell
+RUN echo 'source /opt/ros/jazzy/setup.bash' >> /root/.bashrc && \
+    echo 'source /workspace/catkin_ws_ov/install/setup.bash' >> /root/.bashrc
+
+WORKDIR /workspace/catkin_ws_ov
+
+CMD ["/bin/bash"]

@@ -5,23 +5,9 @@ Panels:
       Expanded: ~
       Splitter Ratio: 0.6
     Tree Height: 347
-  - Class: rviz_common/Selection
-    Name: Selection
-  - Class: rviz_common/Tool Properties
-    Name: Tool Properties
-    Splitter Ratio: 0.59
   - Class: rviz_common/Views
     Name: Views
     Splitter Ratio: 0.5
-  - Class: rviz_common/Time
-    Experimental: false
-    Name: Time
-    SyncMode: 0
-    SyncSource: SLAM Points
-Preferences:
-  PromptSaveOnExit: true
-Toolbars:
-  toolButtonStyle: 2
 Visualization Manager:
   Class: ""
   Displays:
@@ -105,51 +91,6 @@ Visualization Manager:
         Durability Policy: Volatile
         Reliability Policy: Best Effort
       Value: true
-    - Alpha: 1
-      Class: rviz_default_plugins/PointCloud2
-      Color: 117; 80; 123
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: true
-      Name: ARUCO Points
-      Size (Pixels): 15
-      Style: Points
-      Topic:
-        Value: /ov_msckf/points_aruco
-        Depth: 10
-        Durability Policy: Volatile
-        Reliability Policy: Best Effort
-      Value: true
-    - Alpha: 1
-      Class: rviz_default_plugins/PointCloud2
-      Color: 255; 255; 255
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: true
-      Name: ACTIVE Features
-      Size (Pixels): 3
-      Style: Points
-      Topic:
-        Value: /ov_msckf/loop_feats
-        Depth: 10
-        Durability Policy: Volatile
-        Reliability Policy: Best Effort
-      Value: true
-    - Alpha: 1
-      Class: rviz_default_plugins/PointCloud2
-      Color: 255; 255; 127
-      Color Transformer: FlatColor
-      Decay Time: 0
-      Enabled: true
-      Name: SIM Points
-      Size (Pixels): 3
-      Style: Points
-      Topic:
-        Value: /ov_msckf/points_sim
-        Depth: 10
-        Durability Policy: Volatile
-        Reliability Policy: Best Effort
-      Value: true
   Enabled: true
   Global Options:
     Background Color: 44; 44; 44
@@ -162,35 +103,11 @@ Visualization Manager:
       Hide Inactive Objects: true
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Select
-    - Class: rviz_default_plugins/FocusCamera
-    - Class: rviz_default_plugins/Measure
-    - Class: rviz_default_plugins/SetInitialPose
-      Theta std deviation: 0.26
-      Topic:
-        Value: /initialpose
-        Depth: 5
-        Durability Policy: Volatile
-        Reliability Policy: Reliable
-      X std deviation: 0.5
-      Y std deviation: 0.5
-    - Class: rviz_default_plugins/SetGoal
-      Topic:
-        Value: /move_base_simple/goal
-        Depth: 5
-        Durability Policy: Volatile
-        Reliability Policy: Reliable
-    - Class: rviz_default_plugins/PublishPoint
-      Single click: true
-      Topic:
-        Value: /clicked_point
-        Depth: 5
-        Durability Policy: Volatile
-        Reliability Policy: Reliable
   Value: true
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 12.36
+      Distance: 12.0
       Focal Point:
         X: 0
         Y: 0
@@ -205,16 +122,6 @@ Window Geometry:
   Displays:
     collapsed: false
   Height: 720
-  Hide Left Dock: false
-  Hide Right Dock: true
-  Selection:
-    collapsed: false
-  Time:
-    collapsed: false
-  Tool Properties:
-    collapsed: false
-  Views:
-    collapsed: true
-  Width: 1281
+  Width: 1280
   X: 0
   Y: 0

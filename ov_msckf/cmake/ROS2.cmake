@@ -13,6 +13,7 @@ find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(ov_core REQUIRED)
 find_package(ov_init REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 
 # Describe ROS project
 option(ENABLE_ROS "Enable or disable building with ROS (if it is found)" ON)
@@ -47,6 +48,7 @@ list(APPEND ament_libraries
         image_transport
         ov_core
         ov_init
+        rosbag2_cpp
 )
 
 ##################################################
@@ -107,6 +109,11 @@ add_executable(test_sim_repeat src/test_sim_repeat.cpp)
 ament_target_dependencies(test_sim_repeat ${ament_libraries})
 target_link_libraries(test_sim_repeat ov_msckf_lib ${thirdparty_libraries})
 install(TARGETS test_sim_repeat DESTINATION lib/${PROJECT_NAME})
+
+add_executable(ros2_serial_msckf src/ros2_serial_msckf.cpp)
+ament_target_dependencies(ros2_serial_msckf ${ament_libraries})
+target_link_libraries(ros2_serial_msckf ov_msckf_lib ${thirdparty_libraries})
+install(TARGETS ros2_serial_msckf DESTINATION lib/${PROJECT_NAME})
 
 # Install launch and config directories
 install(DIRECTORY launch/ DESTINATION share/${PROJECT_NAME}/launch/)
