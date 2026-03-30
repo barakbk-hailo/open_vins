@@ -1,5 +1,5 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction, Shutdown
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -117,6 +117,7 @@ def launch_setup(context):
         condition=IfCondition(LaunchConfiguration("ov_enable")),
         namespace=LaunchConfiguration("namespace"),
         output="screen",
+        on_exit=Shutdown(),
         parameters=[
             {"config_path":      config_path},
             {"verbosity":        LaunchConfiguration("verbosity")},
