@@ -131,7 +131,14 @@ int main(int argc, char **argv) {
   //===========================================================
 
   // Calculate
-  std::vector<double> segments = {8.0, 16.0, 24.0, 32.0, 40.0};
+  std::vector<double> segments;
+  if (argc > 4) {
+    for (int i = 4; i < argc; i++) {
+      segments.push_back(std::atof(argv[i]));
+    }
+  } else {
+    segments = {8.0, 16.0, 24.0, 32.0, 40.0};
+  }
   std::map<double, std::pair<ov_eval::Statistics, ov_eval::Statistics>> error_rpe;
   traj.calculate_rpe(segments, error_rpe);
 
