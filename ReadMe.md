@@ -1,8 +1,59 @@
-# OpenVINS
+# OpenVINS (Hailo Fork)
+
+> **This is a fork of [rpng/open_vins](https://github.com/rpng/open_vins)** maintained by Hailo for benchmarking VIO performance on embedded platforms (Raspberry Pi 5).
+> The upstream README follows below. See [Fork Changes](#fork-changes) for what was added.
 
 [![ROS 1 Workflow](https://github.com/rpng/open_vins/actions/workflows/build_ros1.yml/badge.svg)](https://github.com/rpng/open_vins/actions/workflows/build_ros1.yml)
 [![ROS 2 Workflow](https://github.com/rpng/open_vins/actions/workflows/build_ros2.yml/badge.svg)](https://github.com/rpng/open_vins/actions/workflows/build_ros2.yml)
 [![ROS Free Workflow](https://github.com/rpng/open_vins/actions/workflows/build.yml/badge.svg)](https://github.com/rpng/open_vins/actions/workflows/build.yml)
+
+## Fork Changes
+
+The following changes were made on top of upstream OpenVINS to support deterministic benchmarking and embedded deployment:
+
+### 1. ROS 2 Serial (Offline) VIO Node
+**`ov_msckf/src/ros2_serial_msckf.cpp`** — A new node that reads a ROS 2 bag file and processes frames sequentially (one at a time, blocking updates). Unlike the default subscriber-based node, this guarantees deterministic results regardless of CPU speed — no frames are dropped due to processing delays. This is critical for fair benchmarking across different hardware (x86 baseline vs. RPi5).
+
+Key features:
+- Reads bags via `rosbag2_cpp`, filters by topic and time window
+- Stereo frame synchronization (20 ms tolerance)
+- Optional ground-truth initialization from ASL-format CSV
+- Single-threaded, blocking VIO updates (`use_multi_threading_subs=false`)
+
+**`ov_msckf/launch/serial.launch.py`** — Launch file for the serial node with parameters for bag path, duration, topics, and optional RViz display. Configured with `on_exit=Shutdown()` so the launch process exits cleanly when the bag is fully processed (important for automated benchmark loops).
+
+### 2. Customizable RPE Segment Lengths
+**`ov_eval/src/error_singlerun.cpp`** — The Relative Pose Error (RPE) evaluation tool now accepts custom segment lengths as command-line arguments:
+```
+./error_singlerun <align_mode> <gt_file> <est_file> [seg1] [seg2] ... [segN]
+```
+Default segments remain `{8, 16, 24, 32, 40}` seconds when no arguments are given.
+
+### 3. Docker Images for Embedded Deployment
+- **`Dockerfile_ros2_humble_jammy`** — Ubuntu 22.04 + ROS 2 Humble, targeting RPi5 / Debian Trixie
+- **`Dockerfile_ros2_jazzy_noble`** — Ubuntu 24.04 + ROS 2 Jazzy (work in progress)
+
+Both use ccache and limit parallel builds to 2 workers for memory-constrained boards.
+
+### 4. RViz Configuration Updates
+- **`ov_msckf/launch/display.rviz`** — Updated plugin names from ROS 1 to ROS 2, simplified for Intel iGPU
+- **`ov_msckf/launch/display_minimal.rviz`** — New minimal config with only essential displays (Grid, TF, Paths, Points)
+
+### Summary of Changed Files
+
+| File | Status | Description |
+|------|--------|-------------|
+| `ov_msckf/src/ros2_serial_msckf.cpp` | Added | Serial (offline) VIO node |
+| `ov_msckf/launch/serial.launch.py` | Added | Launch config for serial node |
+| `ov_msckf/launch/display_minimal.rviz` | Added | Minimal RViz config |
+| `Dockerfile_ros2_humble_jammy` | Added | Docker for Humble + RPi5 |
+| `Dockerfile_ros2_jazzy_noble` | Added | Docker for Jazzy (WIP) |
+| `ov_msckf/cmake/ROS2.cmake` | Modified | Added rosbag2_cpp dep and serial target |
+| `ov_msckf/package.xml` | Modified | Added rosbag2_cpp dependency |
+| `ov_msckf/launch/display.rviz` | Modified | ROS 2 plugin names |
+| `ov_eval/src/error_singlerun.cpp` | Modified | Customizable RPE segments |
+
+---
 
 Welcome to the OpenVINS project!
 The OpenVINS project houses some core computer vision code along with a state-of-the art filter-based visual-inertial
