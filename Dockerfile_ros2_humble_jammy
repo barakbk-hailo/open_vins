@@ -13,6 +13,9 @@ FROM ros:humble-ros-base-jammy
 #     -v /dev:/dev \
 #     -v ~/workspace:/workspace \
 #     openvins-humble
+#
+#   /opt/ros_ws  — OpenVINS build (baked into image, not shadowed)
+#   /workspace   — host files (mounted via -v)
 # =========================================================
 
 # Core build tools
@@ -38,23 +41,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Clone OpenVINS
-RUN mkdir -p /workspace/catkin_ws_ov/src && \
-    cd /workspace/catkin_ws_ov/src && \
+RUN mkdir -p /opt/ros_ws/src && \
+    cd /opt/ros_ws/src && \
     git clone https://github.com/barakbk-hailo/open_vins/
 
 # Build OpenVINS
+ARG PARALLEL_WORKERS=2
 RUN --mount=type=cache,id=ccache-humble,target=/root/.ccache \
     /bin/bash -c "source /opt/ros/humble/setup.bash && \
-    cd /workspace/catkin_ws_ov && \
-    colcon build --symlink-install --parallel-workers 2 \
+    cd /opt/ros_ws && \
+    colcon build --symlink-install --parallel-workers ${PARALLEL_WORKERS} \
       --cmake-args -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_C_COMPILER_LAUNCHER=ccache \
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 
 # Source ROS 2 + workspace in every new shell
 RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc && \
-    echo 'source /workspace/catkin_ws_ov/install/setup.bash' >> /root/.bashrc
+    echo 'source /opt/ros_ws/install/setup.bash' >> /root/.bashrc
 
-WORKDIR /workspace/catkin_ws_ov
+WORKDIR /workspace
 
 CMD ["/bin/bash"]
