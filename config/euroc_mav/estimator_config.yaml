@@ -64,6 +64,12 @@ init_dyn_bias_a: [ 0.0, 0.0, 0.0 ] # initial accelerometer bias guess
 
 record_timing_information: false # if we want to record timing information of the method
 record_timing_filepath: "/tmp/traj_timing.txt" # https://docs.openvins.com/eval-timing.html#eval-ov-timing-flame
+record_timing_cpu_time: false # if we want to record process CPU timing of the method
+record_timing_cpu_filepath: "/tmp/traj_timing_cpu.txt"
+record_timing_thread_time: false # if we want to record thread CPU timing of the method
+record_timing_thread_filepath: "/tmp/traj_timing_thread.txt"
+record_feature_counts: false # if we want to record per-frame feature counts
+record_feature_counts_filepath: "/tmp/traj_features.txt"
 
 # if we want to save the simulation state and its diagional covariance
 # use this with rosrun ov_eval error_simulation

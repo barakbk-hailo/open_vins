@@ -121,6 +121,50 @@ VioManager::VioManager(VioManagerOptions &params_) : thread_init_running(false),
     of_statistics << "re-tri & marg,total" << std::endl;
   }
 
+  // If we are recording process CPU timing statistics, then open our file
+  if (params.record_timing_cpu_time) {
+    if (boost::filesystem::exists(params.record_timing_cpu_filepath)) {
+      boost::filesystem::remove(params.record_timing_cpu_filepath);
+      PRINT_INFO(YELLOW "[STATS]: found old cpu time file, deleted...\n" RESET);
+    }
+    boost::filesystem::path p(params.record_timing_cpu_filepath);
+    boost::filesystem::create_directories(p.parent_path());
+    of_statistics_cpu.open(params.record_timing_cpu_filepath, std::ofstream::out | std::ofstream::app);
+    of_statistics_cpu << "# timestamp (sec),tracking,propagation,msckf update,";
+    if (state->_options.max_slam_features > 0) {
+      of_statistics_cpu << "slam update,slam delayed,";
+    }
+    of_statistics_cpu << "re-tri & marg,total" << std::endl;
+  }
+
+  // If we are recording thread CPU timing statistics, then open our file
+  if (params.record_timing_thread_time) {
+    if (boost::filesystem::exists(params.record_timing_thread_filepath)) {
+      boost::filesystem::remove(params.record_timing_thread_filepath);
+      PRINT_INFO(YELLOW "[STATS]: found old thread time file, deleted...\n" RESET);
+    }
+    boost::filesystem::path p(params.record_timing_thread_filepath);
+    boost::filesystem::create_directories(p.parent_path());
+    of_statistics_thread.open(params.record_timing_thread_filepath, std::ofstream::out | std::ofstream::app);
+    of_statistics_thread << "# timestamp (sec),tracking,propagation,msckf update,";
+    if (state->_options.max_slam_features > 0) {
+      of_statistics_thread << "slam update,slam delayed,";
+    }
+    of_statistics_thread << "re-tri & marg,total" << std::endl;
+  }
+
+  // If we are recording feature counts, then open our file
+  if (params.record_feature_counts) {
+    if (boost::filesystem::exists(params.record_feature_counts_filepath)) {
+      boost::filesystem::remove(params.record_feature_counts_filepath);
+      PRINT_INFO(YELLOW "[STATS]: found old feature counts file, deleted...\n" RESET);
+    }
+    boost::filesystem::path p(params.record_feature_counts_filepath);
+    boost::filesystem::create_directories(p.parent_path());
+    of_feature_counts.open(params.record_feature_counts_filepath, std::ofstream::out | std::ofstream::app);
+    of_feature_counts << "# timestamp (sec),slam_feats_in_state,msckf_feats_used,slam_feats_updated,slam_feats_delayed_init,clones" << std::endl;
+  }
+
   //===================================================================================
   //===================================================================================
   //===================================================================================
@@ -193,6 +237,8 @@ void VioManager::feed_measurement_simulation(double timestamp, const std::vector
 
   // Start timing
   rT1 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT1);
+  capture_thread_time(thT1);
 
   // Check if we actually have a simulated tracker
   // If not, recreate and re-cast the tracker to our simulation tracker
@@ -214,6 +260,8 @@ void VioManager::feed_measurement_simulation(double timestamp, const std::vector
   // Feed our simulation tracker
   trackSIM->feed_measurement_simulation(timestamp, camids, feats);
   rT2 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT2);
+  capture_thread_time(thT2);
 
   // Check if we should do zero-velocity, if so update the state with it
   // Note that in the case that we only use in the beginning initialization phase
@@ -257,6 +305,8 @@ void VioManager::track_image_and_update(const ov_core::CameraData &message_const
 
   // Start timing
   rT1 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT1);
+  capture_thread_time(thT1);
 
   // Assert we have valid measurement data and ids
   assert(!message_const.sensor_ids.empty());
@@ -287,6 +337,8 @@ void VioManager::track_image_and_update(const ov_core::CameraData &message_const
     trackARUCO->feed_new_camera(message);
   }
   rT2 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT2);
+  capture_thread_time(thT2);
 
   // Check if we should do zero-velocity, if so update the state with it
   // Note that in the case that we only use in the beginning initialization phase
@@ -341,6 +393,8 @@ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message)
     propagator->propagate_and_clone(state, message.timestamp);
   }
   rT3 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT3);
+  capture_thread_time(thT3);
 
   // If we have not reached max clones, we should just return...
   // This isn't super ideal, but it keeps the logic after this easier...
@@ -525,6 +579,8 @@ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message)
   updaterMSCKF->update(state, featsup_MSCKF);
   propagator->invalidate_cache();
   rT4 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT4);
+  capture_thread_time(thT4);
 
   // Perform SLAM delay init and update
   // NOTE: that we provide the option here to do a *sequential* update
@@ -544,8 +600,12 @@ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message)
   }
   feats_slam_UPDATE = feats_slam_UPDATE_TEMP;
   rT5 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT5);
+  capture_thread_time(thT5);
   updaterSLAM->delayed_init(state, feats_slam_DELAYED);
   rT6 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT6);
+  capture_thread_time(thT6);
 
   //===================================================================================
   // Update our visualization feature set, and clean up the old features
@@ -595,6 +655,8 @@ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message)
   // Finally marginalize the oldest clone if needed
   StateHelper::marginalize_old_clone(state);
   rT7 = boost::posix_time::microsec_clock::local_time();
+  capture_cpu_time(tT7);
+  capture_thread_time(thT7);
 
   //===================================================================================
   // Debug info, and stats tracking
@@ -641,6 +703,59 @@ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message)
     }
     of_statistics << time_marg << "," << time_total << std::endl;
     of_statistics.flush();
+  }
+
+  // Save process CPU timing stats to file
+  if (params.record_timing_cpu_time && of_statistics_cpu.is_open()) {
+    double ctime_track = timespec_delta_sec(tT1, tT2);
+    double ctime_prop = timespec_delta_sec(tT2, tT3);
+    double ctime_msckf = timespec_delta_sec(tT3, tT4);
+    double ctime_slam_update = timespec_delta_sec(tT4, tT5);
+    double ctime_slam_delay = timespec_delta_sec(tT5, tT6);
+    double ctime_marg = timespec_delta_sec(tT6, tT7);
+    double ctime_total = timespec_delta_sec(tT1, tT7);
+    double t_ItoC = state->_calib_dt_CAMtoIMU->value()(0);
+    double timestamp_inI = state->_timestamp + t_ItoC;
+    of_statistics_cpu << std::fixed << std::setprecision(15) << timestamp_inI << "," << std::fixed << std::setprecision(5) << ctime_track
+                      << "," << ctime_prop << "," << ctime_msckf << ",";
+    if (state->_options.max_slam_features > 0) {
+      of_statistics_cpu << ctime_slam_update << "," << ctime_slam_delay << ",";
+    }
+    of_statistics_cpu << ctime_marg << "," << ctime_total << std::endl;
+    of_statistics_cpu.flush();
+  }
+
+  // Save thread CPU timing stats to file
+  if (params.record_timing_thread_time && of_statistics_thread.is_open()) {
+    double thtime_track = timespec_delta_sec(thT1, thT2);
+    double thtime_prop = timespec_delta_sec(thT2, thT3);
+    double thtime_msckf = timespec_delta_sec(thT3, thT4);
+    double thtime_slam_update = timespec_delta_sec(thT4, thT5);
+    double thtime_slam_delay = timespec_delta_sec(thT5, thT6);
+    double thtime_marg = timespec_delta_sec(thT6, thT7);
+    double thtime_total = timespec_delta_sec(thT1, thT7);
+    double t_ItoC = state->_calib_dt_CAMtoIMU->value()(0);
+    double timestamp_inI = state->_timestamp + t_ItoC;
+    of_statistics_thread << std::fixed << std::setprecision(15) << timestamp_inI << "," << std::fixed << std::setprecision(5)
+                         << thtime_track << "," << thtime_prop << "," << thtime_msckf << ",";
+    if (state->_options.max_slam_features > 0) {
+      of_statistics_thread << thtime_slam_update << "," << thtime_slam_delay << ",";
+    }
+    of_statistics_thread << thtime_marg << "," << thtime_total << std::endl;
+    of_statistics_thread.flush();
+  }
+
+  // Save feature counts to file
+  if (params.record_feature_counts && of_feature_counts.is_open()) {
+    double t_ItoC = state->_calib_dt_CAMtoIMU->value()(0);
+    double timestamp_inI = state->_timestamp + t_ItoC;
+    of_feature_counts << std::fixed << std::setprecision(15) << timestamp_inI << ","
+                      << (int)state->_features_SLAM.size() << ","
+                      << (int)featsup_MSCKF.size() << ","
+                      << (int)feats_slam_UPDATE.size() << ","
+                      << (int)feats_slam_DELAYED.size() << ","
+                      << (int)state->_clones_IMU.size() << std::endl;
+    of_feature_counts.flush();
   }
 
   // Update our distance traveled

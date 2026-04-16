@@ -100,6 +100,24 @@ struct VioManagerOptions {
   /// The path to the file we will record the timing information into
   std::string record_timing_filepath = "ov_msckf_timing.txt";
 
+  /// If we should record process CPU timing performance to file
+  bool record_timing_cpu_time = false;
+
+  /// The path to the file we will record the process CPU timing information into
+  std::string record_timing_cpu_filepath = "ov_msckf_timing_cpu.txt";
+
+  /// If we should record thread CPU timing performance to file
+  bool record_timing_thread_time = false;
+
+  /// The path to the file we will record the thread CPU timing information into
+  std::string record_timing_thread_filepath = "ov_msckf_timing_thread.txt";
+
+  /// If we should record per-frame feature counts to file
+  bool record_feature_counts = false;
+
+  /// The path to the file we will record per-frame feature counts into
+  std::string record_feature_counts_filepath = "ov_msckf_feature_counts.txt";
+
   /**
    * @brief This function will load print out all estimator settings loaded.
    * This allows for visual checking that everything was loaded properly from ROS/CMD parsers.
@@ -119,6 +137,12 @@ struct VioManagerOptions {
       parser->parse_config("zupt_only_at_beginning", zupt_only_at_beginning);
       parser->parse_config("record_timing_information", record_timing_information);
       parser->parse_config("record_timing_filepath", record_timing_filepath);
+      parser->parse_config("record_timing_cpu_time", record_timing_cpu_time);
+      parser->parse_config("record_timing_cpu_filepath", record_timing_cpu_filepath);
+      parser->parse_config("record_timing_thread_time", record_timing_thread_time);
+      parser->parse_config("record_timing_thread_filepath", record_timing_thread_filepath);
+      parser->parse_config("record_feature_counts", record_feature_counts);
+      parser->parse_config("record_feature_counts_filepath", record_feature_counts_filepath);
     }
     PRINT_DEBUG("  - dt_slam_delay: %.1f\n", dt_slam_delay);
     PRINT_DEBUG("  - zero_velocity_update: %d\n", try_zupt);
@@ -128,6 +152,12 @@ struct VioManagerOptions {
     PRINT_DEBUG("  - zupt_only_at_beginning?: %d\n", zupt_only_at_beginning);
     PRINT_DEBUG("  - record timing?: %d\n", (int)record_timing_information);
     PRINT_DEBUG("  - record timing filepath: %s\n", record_timing_filepath.c_str());
+    PRINT_DEBUG("  - record cpu time?: %d\n", (int)record_timing_cpu_time);
+    PRINT_DEBUG("  - record cpu time filepath: %s\n", record_timing_cpu_filepath.c_str());
+    PRINT_DEBUG("  - record thread time?: %d\n", (int)record_timing_thread_time);
+    PRINT_DEBUG("  - record thread time filepath: %s\n", record_timing_thread_filepath.c_str());
+    PRINT_DEBUG("  - record feature counts?: %d\n", (int)record_feature_counts);
+    PRINT_DEBUG("  - record feature counts filepath: %s\n", record_feature_counts_filepath.c_str());
   }
 
   // NOISE / CHI2 ============================

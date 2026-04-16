@@ -30,6 +30,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <time.h>
 
 #include "VioManagerOptions.h"
 
@@ -214,6 +215,36 @@ protected:
   // Timing statistic file and variables
   std::ofstream of_statistics;
   boost::posix_time::ptime rT1, rT2, rT3, rT4, rT5, rT6, rT7;
+
+  // Process CPU timing file and variables
+  std::ofstream of_statistics_cpu;
+  struct timespec tT1, tT2, tT3, tT4, tT5, tT6, tT7;
+
+  /// Capture process CPU time into the given timespec if CPU time recording is enabled
+  inline void capture_cpu_time(struct timespec &ts) {
+    if (params.record_timing_cpu_time) {
+      clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+    }
+  }
+
+  // Thread CPU timing file and variables
+  std::ofstream of_statistics_thread;
+  struct timespec thT1, thT2, thT3, thT4, thT5, thT6, thT7;
+
+  // Feature count file
+  std::ofstream of_feature_counts;
+
+  /// Capture thread CPU time into the given timespec if thread time recording is enabled
+  inline void capture_thread_time(struct timespec &ts) {
+    if (params.record_timing_thread_time) {
+      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
+    }
+  }
+
+  /// Compute elapsed seconds between two timespec values
+  static inline double timespec_delta_sec(const struct timespec &start, const struct timespec &end) {
+    return (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
+  }
 
   // Track how much distance we have traveled
   double timelastupdate = -1;
