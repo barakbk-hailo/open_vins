@@ -48,6 +48,7 @@ class State;
  * SLAM anchor change for anchored feature representations.
  */
 class UpdaterSLAM {
+  friend class VioManager;
 
 public:
   /**
