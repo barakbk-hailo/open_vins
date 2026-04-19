@@ -40,6 +40,16 @@ launch_args = [
         default_value="false",
         description="record total state with calibration and features to a txt file",
     ),
+    DeclareLaunchArgument(
+        name="filepath_est",
+        default_value="/tmp/ov_estimate.txt",
+        description="path to save state estimate when save_total_state is true",
+    ),
+    DeclareLaunchArgument(
+        name="filepath_std",
+        default_value="/tmp/ov_estimate_std.txt",
+        description="path to save state std deviation when save_total_state is true",
+    ),
     # Bag-specific arguments
     DeclareLaunchArgument(
         name="path_bag",
@@ -124,6 +134,8 @@ def launch_setup(context):
             {"use_stereo":       LaunchConfiguration("use_stereo")},
             {"max_cameras":      LaunchConfiguration("max_cameras")},
             {"save_total_state": LaunchConfiguration("save_total_state")},
+            {"filepath_est":     LaunchConfiguration("filepath_est")},
+            {"filepath_std":     LaunchConfiguration("filepath_std")},
             {"path_bag":         path_bag},
             {"bag_start":        LaunchConfiguration("bag_start")},
             {"bag_durr":         LaunchConfiguration("bag_durr")},
