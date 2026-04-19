@@ -202,6 +202,10 @@ void ROS2Visualizer::setup_subscribers(std::shared_ptr<ov_core::YamlParser> pars
     auto image_sub0 = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(_node, cam_topic0);
     auto image_sub1 = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::Image>>(_node, cam_topic1);
     auto sync = std::make_shared<message_filters::Synchronizer<sync_pol>>(sync_pol(10), *image_sub0, *image_sub1);
+    // Match serial mode's strict ±20ms stereo pair constraint to eliminate non-deterministic
+    // pairing decisions that ApproximateTime makes based on queue state (see docs/persistent-worker.md
+    // RPi5 follow-up investigation). Queue depth stays at 10 so buffered messages aren't dropped.
+    sync->setMaxIntervalDuration(rclcpp::Duration::from_seconds(0.02));
     sync->registerCallback(std::bind(&ROS2Visualizer::callback_stereo, this, std::placeholders::_1, std::placeholders::_2, 0, 1));
     // sync->registerCallback([](const sensor_msgs::msg::Image::SharedPtr msg0, const sensor_msgs::msg::Image::SharedPtr msg1)
     // {callback_stereo(msg0, msg1, 0, 1);});
