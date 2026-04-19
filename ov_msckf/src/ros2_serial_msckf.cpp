@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
   int64_t max_camera_time_ns = -1;
   while (reader.has_next()) {
     auto bag_msg = reader.read_next();
-    if (bag_msg->time_stamp > time_finish_ns)
+    if (bag_msg->recv_timestamp > time_finish_ns)
       break;
     bool is_imu = (bag_msg->topic_name == topic_imu);
     bool is_cam = false;
@@ -193,9 +193,9 @@ int main(int argc, char **argv) {
       }
     }
     if (is_imu || is_cam) {
-      msgs.push_back({bag_msg->topic_name, bag_msg->time_stamp, bag_msg});
+      msgs.push_back({bag_msg->topic_name, bag_msg->recv_timestamp, bag_msg});
       if (is_cam) {
-        max_camera_time_ns = std::max(max_camera_time_ns, bag_msg->time_stamp);
+        max_camera_time_ns = std::max(max_camera_time_ns, bag_msg->recv_timestamp);
       }
     }
   }
