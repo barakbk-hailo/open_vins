@@ -36,7 +36,7 @@ using namespace ov_type;
 using namespace ov_msckf;
 
 ROS2Visualizer::ROS2Visualizer(std::shared_ptr<rclcpp::Node> node, std::shared_ptr<VioManager> app, std::shared_ptr<Simulator> sim)
-    : _node(node), _app(app), _sim(sim), thread_update_running(false) {
+    : _node(node), _app(app), _sim(sim) {
 
   // Setup our transform broadcaster
   mTfBr = std::make_shared<tf2_ros::TransformBroadcaster>(node);
@@ -158,6 +158,19 @@ ROS2Visualizer::ROS2Visualizer(std::shared_ptr<rclcpp::Node> node, std::shared_p
     });
     thread.detach();
   }
+
+  // Launch the persistent VIO processing worker thread
+  worker_thread = std::thread(&ROS2Visualizer::processing_worker, this);
+}
+
+ROS2Visualizer::~ROS2Visualizer() {
+  {
+    std::lock_guard<std::mutex> lk(worker_mtx);
+    worker_should_exit = true;
+  }
+  worker_cv.notify_one();
+  if (worker_thread.joinable())
+    worker_thread.join();
 }
 
 void ROS2Visualizer::setup_subscribers(std::shared_ptr<ov_core::YamlParser> parser) {
@@ -437,61 +450,64 @@ void ROS2Visualizer::visualize_final() {
 
 void ROS2Visualizer::callback_inertial(const sensor_msgs::msg::Imu::SharedPtr msg) {
 
-  // convert into correct format
+  // Convert into correct format
   ov_core::ImuData message;
   message.timestamp = msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
   message.wm << msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z;
   message.am << msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z;
 
-  // send it to our VIO system
+  // Buffer IMU data in the VIO system (Propagator)
   _app->feed_measurement_imu(message);
   visualize_odometry(message.timestamp);
 
-  // If the processing queue is currently active / running just return so we can keep getting measurements
-  // Otherwise create a second thread to do our update in an async manor
-  // The visualization of the state, images, and features will be synchronous with the update!
-  if (thread_update_running)
-    return;
-  thread_update_running = true;
-  std::thread thread([&] {
-    // Lock on the queue (prevents new images from appending)
-    std::lock_guard<std::mutex> lck(camera_queue_mtx);
+  // Update the latest IMU timestamp and wake the processing worker
+  {
+    std::lock_guard<std::mutex> lk(worker_mtx);
+    latest_imu_timestamp = message.timestamp;
+  }
+  worker_cv.notify_one();
+}
 
-    // Count how many unique image streams
+void ROS2Visualizer::processing_worker() {
+
+  auto params = _app->get_params();
+  size_t num_unique_cameras = (params.state_options.num_cameras == 2) ? 1 : params.state_options.num_cameras;
+
+  while (true) {
+
+    // Wait for new IMU data or shutdown signal
+    double current_imu_ts;
+    {
+      std::unique_lock<std::mutex> lk(worker_mtx);
+      worker_cv.wait(lk, [this] { return worker_should_exit || latest_imu_timestamp > 0.0; });
+      if (worker_should_exit)
+        return;
+      current_imu_ts = latest_imu_timestamp;
+    }
+
+    // Lock the camera queue and process eligible frames
+    std::lock_guard<std::mutex> cam_lk(camera_queue_mtx);
+
+    // Check if we have frames from all expected camera streams
     std::map<int, bool> unique_cam_ids;
     for (const auto &cam_msg : camera_queue) {
       unique_cam_ids[cam_msg.sensor_ids.at(0)] = true;
     }
+    if (unique_cam_ids.size() < num_unique_cameras)
+      continue;
 
-    // If we do not have enough unique cameras then we need to wait
-    // We should wait till we have one of each camera to ensure we propagate in the correct order
-    auto params = _app->get_params();
-    size_t num_unique_cameras = (params.state_options.num_cameras == 2) ? 1 : params.state_options.num_cameras;
-    if (unique_cam_ids.size() == num_unique_cameras) {
-
-      // Loop through our queue and see if we are able to process any of our camera measurements
-      // We are able to process if we have at least one IMU measurement greater than the camera time
-      double timestamp_imu_inC = message.timestamp - _app->get_state()->_calib_dt_CAMtoIMU->value()(0);
-      while (!camera_queue.empty() && camera_queue.at(0).timestamp < timestamp_imu_inC) {
-        auto rT0_1 = boost::posix_time::microsec_clock::local_time();
-        double update_dt = 100.0 * (timestamp_imu_inC - camera_queue.at(0).timestamp);
-        _app->feed_measurement_camera(camera_queue.at(0));
-        visualize();
-        camera_queue.pop_front();
-        auto rT0_2 = boost::posix_time::microsec_clock::local_time();
-        double time_total = (rT0_2 - rT0_1).total_microseconds() * 1e-6;
-        PRINT_INFO(BLUE "[TIME]: %.4f seconds total (%.1f hz, %.2f ms behind)\n" RESET, time_total, 1.0 / time_total, update_dt);
-      }
+    // Process camera frames whose timestamp is before the IMU cutoff
+    double timestamp_imu_inC = current_imu_ts - _app->get_state()->_calib_dt_CAMtoIMU->value()(0);
+    while (!camera_queue.empty() && camera_queue.at(0).timestamp < timestamp_imu_inC) {
+      auto rT0_1 = boost::posix_time::microsec_clock::local_time();
+      double update_dt = 100.0 * (timestamp_imu_inC - camera_queue.at(0).timestamp);
+      _app->feed_measurement_camera(camera_queue.at(0));
+      visualize();
+      camera_queue.pop_front();
+      auto rT0_2 = boost::posix_time::microsec_clock::local_time();
+      double time_total = (rT0_2 - rT0_1).total_microseconds() * 1e-6;
+      PRINT_INFO(BLUE "[TIME]: %.4f seconds total (%.1f hz, %.2f ms behind)\n" RESET, time_total, 1.0 / time_total, update_dt);
     }
-    thread_update_running = false;
-  });
-
-  // If we are single threaded, then run single threaded
-  // Otherwise detach this thread so it runs in the background!
-  if (!_app->get_params().use_multi_threading_subs) {
-    thread.join();
-  } else {
-    thread.detach();
   }
 }
 
@@ -529,9 +545,12 @@ void ROS2Visualizer::callback_monocular(const sensor_msgs::msg::Image::SharedPtr
   }
 
   // append it to our queue of images
-  std::lock_guard<std::mutex> lck(camera_queue_mtx);
-  camera_queue.push_back(message);
-  std::sort(camera_queue.begin(), camera_queue.end());
+  {
+    std::lock_guard<std::mutex> lck(camera_queue_mtx);
+    camera_queue.push_back(message);
+    std::sort(camera_queue.begin(), camera_queue.end());
+  }
+  worker_cv.notify_one();
 }
 
 void ROS2Visualizer::callback_stereo(const sensor_msgs::msg::Image::ConstSharedPtr msg0, const sensor_msgs::msg::Image::ConstSharedPtr msg1,
@@ -583,9 +602,12 @@ void ROS2Visualizer::callback_stereo(const sensor_msgs::msg::Image::ConstSharedP
   }
 
   // append it to our queue of images
-  std::lock_guard<std::mutex> lck(camera_queue_mtx);
-  camera_queue.push_back(message);
-  std::sort(camera_queue.begin(), camera_queue.end());
+  {
+    std::lock_guard<std::mutex> lck(camera_queue_mtx);
+    camera_queue.push_back(message);
+    std::sort(camera_queue.begin(), camera_queue.end());
+  }
+  worker_cv.notify_one();
 }
 
 void ROS2Visualizer::publish_state() {

@@ -45,10 +45,11 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2_ros/transform_broadcaster.h>
 
-#include <atomic>
+#include <condition_variable>
 #include <fstream>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 #include <Eigen/Eigen>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -85,6 +86,9 @@ public:
    * @param sim Simulator if we are simulating
    */
   ROS2Visualizer(std::shared_ptr<rclcpp::Node> node, std::shared_ptr<VioManager> app, std::shared_ptr<Simulator> sim = nullptr);
+
+  /// Destructor — joins the persistent processing worker thread
+  ~ROS2Visualizer();
 
   /**
    * @brief Will setup ROS subscribers and callbacks
@@ -178,8 +182,17 @@ protected:
   bool start_time_set = false;
   boost::posix_time::ptime rT1, rT2;
 
-  // Thread atomics
-  std::atomic<bool> thread_update_running;
+  /// Persistent worker thread that processes camera frames in timestamp order.
+  /// Replaces the per-IMU-callback detach() pattern to eliminate TOCTOU races,
+  /// dangling reference UB, and non-deterministic IMU triggering.
+  std::thread worker_thread;
+  std::condition_variable worker_cv;
+  std::mutex worker_mtx;
+  double latest_imu_timestamp = 0.0;
+  bool worker_should_exit = false;
+
+  /// Persistent worker thread function
+  void processing_worker();
 
   /// Queue up camera measurements sorted by time and trigger once we have
   /// exactly one IMU measurement with timestamp newer than the camera measurement
