@@ -118,6 +118,13 @@ struct VioManagerOptions {
   /// The path to the file we will record per-frame feature counts into
   std::string record_feature_counts_filepath = "ov_msckf_feature_counts.txt";
 
+  /// If true, relax the SLAM delayed_init chi-squared gate by 3x when the SLAM state
+  /// falls below max_slam_features/4 features. Prevents the "empty-state -> reject
+  /// every feature -> stay empty" feedback loop on stressed subscribe runs. See
+  /// docs/determinism.md for the A/B experiment that justifies the default.
+  /// Default true; set false only for pre-commit-64cfe59 bit-identical replay.
+  bool slam_chi2_recovery = true;
+
   /**
    * @brief This function will load print out all estimator settings loaded.
    * This allows for visual checking that everything was loaded properly from ROS/CMD parsers.
@@ -143,6 +150,7 @@ struct VioManagerOptions {
       parser->parse_config("record_timing_thread_filepath", record_timing_thread_filepath);
       parser->parse_config("record_feature_counts", record_feature_counts);
       parser->parse_config("record_feature_counts_filepath", record_feature_counts_filepath);
+      parser->parse_config("slam_chi2_recovery", slam_chi2_recovery);
     }
     PRINT_DEBUG("  - dt_slam_delay: %.1f\n", dt_slam_delay);
     PRINT_DEBUG("  - zero_velocity_update: %d\n", try_zupt);
@@ -158,6 +166,7 @@ struct VioManagerOptions {
     PRINT_DEBUG("  - record thread time filepath: %s\n", record_timing_thread_filepath.c_str());
     PRINT_DEBUG("  - record feature counts?: %d\n", (int)record_feature_counts);
     PRINT_DEBUG("  - record feature counts filepath: %s\n", record_feature_counts_filepath.c_str());
+    PRINT_DEBUG("  - slam_chi2_recovery?: %d\n", (int)slam_chi2_recovery);
   }
 
   // NOISE / CHI2 ============================

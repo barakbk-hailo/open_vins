@@ -603,16 +603,19 @@ void VioManager::do_feature_propagate_update(const ov_core::CameraData &message)
   capture_cpu_time(tT5);
   capture_thread_time(thT5);
 
-  // SLAM recovery: when the SLAM state is critically low, relax the chi-squared
-  // gate for delayed_init to allow features in despite slightly elevated residuals.
-  // This prevents the irrecoverable feedback loop where an empty SLAM state causes
-  // all new features to fail the consistency test, keeping the state permanently empty.
+  // SLAM recovery (opt-in via params.slam_chi2_recovery): when the SLAM state is
+  // critically low, relax the chi-squared gate for delayed_init to allow features
+  // in despite slightly elevated residuals. Prevents the irrecoverable feedback
+  // loop where an empty SLAM state causes all new features to fail the consistency
+  // test, keeping the state permanently empty. Default on; see docs/determinism.md.
   double original_chi2 = updaterSLAM->_options_slam.chi2_multipler;
-  int slam_recovery_threshold = state->_options.max_slam_features / 4;
-  if (state->_options.max_slam_features > 0 && (int)state->_features_SLAM.size() < slam_recovery_threshold) {
-    updaterSLAM->_options_slam.chi2_multipler = original_chi2 * 3.0;
-    PRINT_DEBUG(YELLOW "[SLAM-RECOVERY]: SLAM features %d < %d threshold, relaxing chi2 %.1f -> %.1f\n" RESET,
-                (int)state->_features_SLAM.size(), slam_recovery_threshold, original_chi2, updaterSLAM->_options_slam.chi2_multipler);
+  if (params.slam_chi2_recovery) {
+    int slam_recovery_threshold = state->_options.max_slam_features / 4;
+    if (state->_options.max_slam_features > 0 && (int)state->_features_SLAM.size() < slam_recovery_threshold) {
+      updaterSLAM->_options_slam.chi2_multipler = original_chi2 * 3.0;
+      PRINT_DEBUG(YELLOW "[SLAM-RECOVERY]: SLAM features %d < %d threshold, relaxing chi2 %.1f -> %.1f\n" RESET,
+                  (int)state->_features_SLAM.size(), slam_recovery_threshold, original_chi2, updaterSLAM->_options_slam.chi2_multipler);
+    }
   }
   updaterSLAM->delayed_init(state, feats_slam_DELAYED);
   updaterSLAM->_options_slam.chi2_multipler = original_chi2;
