@@ -185,14 +185,24 @@ protected:
   /// Persistent worker thread that processes camera frames in timestamp order.
   /// Replaces the per-IMU-callback detach() pattern to eliminate TOCTOU races,
   /// dangling reference UB, and non-deterministic IMU triggering.
+  /// Launched only when use_multi_threading_subs is true (subscribe mode).
+  /// When false (serial mode) the worker is not created and callback_inertial
+  /// drains the camera queue inline on the caller's thread.
   std::thread worker_thread;
   std::condition_variable worker_cv;
   std::mutex worker_mtx;
   double latest_imu_timestamp = 0.0;
   bool worker_should_exit = false;
+  bool use_worker_thread = true;
 
   /// Persistent worker thread function
   void processing_worker();
+
+  /// Drain camera frames older than cutoff_ts from camera_queue, feeding each
+  /// into VioManager and calling visualize(). Precondition: camera_queue_mtx
+  /// is held by the caller. Shared by the worker (subscribe) and the inline
+  /// callback path (serial) so the two modes stay numerically identical.
+  void drain_camera_queue_locked(double cutoff_ts);
 
   /// Queue up camera measurements sorted by time and trigger once we have
   /// exactly one IMU measurement with timestamp newer than the camera measurement
