@@ -29,13 +29,46 @@ Key features:
 ```
 Default segments remain `{8, 16, 24, 32, 40}` seconds when no arguments are given.
 
-### 3. Docker Images for Embedded Deployment
-- **`Dockerfile_ros2_humble_jammy`** — Ubuntu 22.04 + ROS 2 Humble, targeting RPi5 / Debian Trixie
-- **`Dockerfile_ros2_jazzy_noble`** — Ubuntu 24.04 + ROS 2 Jazzy (work in progress)
+### 3. Persistent Worker Thread (Subscribe Mode)
+**`ov_msckf/src/ros/ROS2Visualizer.{h,cpp}`** — Replaces upstream's per-frame `std::thread(...).detach()` dispatch with a single long-lived worker thread that drains a bounded queue. Eliminates a TOCTOU race, dangling-reference UB on captured stack data, and non-deterministic IMU callback triggering. Reduces subscribe-mode overhead from ~2× serial to ~1× serial on x86 and keeps SLAM health stable on RPi5. Details in the companion workspace's `docs/determinism.md` §3.
+
+- Gated by the `multi_threading_subs` YAML knob (default `true` = worker active; `false` = inline dispatch, needed for serial determinism)
+
+### 4. SLAM Recovery (Chi-Squared Gate Relaxation)
+When the SLAM feature state drops below 25% of `max_slam`, the chi-squared gate is transiently relaxed by 3× to let more features in and break the empty-state feedback loop that otherwise keeps new SLAM features permanently rejected.
+
+- Opt-in via the **`slam_chi2_recovery`** YAML knob (default `true`), added to `VioManagerOptions.h` / `VioManager.cpp` / `config/euroc_mav/estimator_config.yaml`. Set to `false` for bit-identical comparisons with upstream behavior.
+
+### 5. Three-Clock Timing + Feature Count Recording
+`VioManager::track_image_and_update()` records per-frame metrics to three separate CSVs plus a per-frame feature-count CSV. Useful for disentangling wall-clock jitter, process-CPU cost (across all threads), and thread-CPU cost (the VIO thread alone).
+
+- **`record_timing_information`** / `record_timing_filepath` — wall clock (existing upstream)
+- **`record_timing_cpu_time`** / `record_timing_cpu_filepath` — process CPU time (fork addition)
+- **`record_timing_thread_time`** / `record_timing_thread_filepath` — thread CPU time (fork addition)
+- **`record_feature_counts`** / `record_feature_counts_filepath` — per-frame SLAM/MSCKF counts, clone count (fork addition)
+
+### 6. Stereo Sync Bound for Subscribe Mode
+**`ov_msckf/src/ros/ROS2Visualizer.cpp`** — `setMaxIntervalDuration(0.02)` on the stereo `Synchronizer` caps cross-camera pair latency at 20 ms. Prevents queue-state race conditions from pairing mismatched frames under scheduler jitter. Zero frame drops on EuRoC's hardware-synced stereo (confirmed at 10 × 2800 frames). The only RPi5 subscribe-mode intervention with a reproducible, measurable effect on accuracy variance — see `docs/determinism.md` §"Recommendation for RPi5 deployment".
+
+### 7. Dual-Distro Support (ROS 2 Humble + Jazzy)
+**`ov_msckf/src/ros/ROS2Visualizer.h`**, **`ov_msckf/src/ros/ROSVisualizerHelper.h`**, **`ov_msckf/src/ros2_serial_msckf.cpp`** — `__has_include()` guards pick the correct `image_transport` / `tf2_geometry_msgs` / `cv_bridge` header (`.hpp` on Jazzy, `.h` where Humble has no `.hpp`). An inline `bag_msg_time()` helper gated on `RCLCPP_VERSION_GTE(28, 0, 0)` picks `recv_timestamp` (Jazzy) vs `time_stamp` (Humble) for rosbag2 `SerializedBagMessage`.
+
+- Verified: `colcon build --packages-select ov_msckf` passes on Ubuntu 22.04 / ROS 2 Humble (`rclcpp` 16.x) and Ubuntu 24.04 / ROS 2 Jazzy (`rclcpp` 28.x).
+
+### 8. Customizable RPE Segment Lengths
+**`ov_eval/src/error_singlerun.cpp`** — The Relative Pose Error (RPE) evaluation tool now accepts custom segment lengths as command-line arguments:
+```
+./error_singlerun <align_mode> <gt_file> <est_file> [seg1] [seg2] ... [segN]
+```
+Default segments remain `{8, 16, 24, 32, 40}` seconds when no arguments are given.
+
+### 9. Docker Images for Embedded Deployment
+- **`Dockerfile_ros2_humble_jammy`** — Ubuntu 22.04 + ROS 2 Humble, targeting RPi5 / Debian Trixie. Default-clones the `sync-max-interval-20ms` branch so the 20 ms bound ships enabled.
+- **`Dockerfile_ros2_jazzy_noble`** — Ubuntu 24.04 + ROS 2 Jazzy. Works with the `__has_include` / `RCLCPP_VERSION_GTE` guards above.
 
 Both use ccache and limit parallel builds to 2 workers for memory-constrained boards.
 
-### 4. RViz Configuration Updates
+### 10. RViz Configuration Updates
 - **`ov_msckf/launch/display.rviz`** — Updated plugin names from ROS 1 to ROS 2, simplified for Intel iGPU
 - **`ov_msckf/launch/display_minimal.rviz`** — New minimal config with only essential displays (Grid, TF, Paths, Points)
 
@@ -43,11 +76,16 @@ Both use ccache and limit parallel builds to 2 workers for memory-constrained bo
 
 | File | Status | Description |
 |------|--------|-------------|
-| `ov_msckf/src/ros2_serial_msckf.cpp` | Added | Serial (offline) VIO node |
+| `ov_msckf/src/ros2_serial_msckf.cpp` | Added | Serial (offline) VIO node; dual-distro `bag_msg_time()` |
 | `ov_msckf/launch/serial.launch.py` | Added | Launch config for serial node |
 | `ov_msckf/launch/display_minimal.rviz` | Added | Minimal RViz config |
-| `Dockerfile_ros2_humble_jammy` | Added | Docker for Humble + RPi5 |
-| `Dockerfile_ros2_jazzy_noble` | Added | Docker for Jazzy (WIP) |
+| `Dockerfile_ros2_humble_jammy` | Added | Docker for Humble + RPi5; clones `sync-max-interval-20ms` by default |
+| `Dockerfile_ros2_jazzy_noble` | Added | Docker for Jazzy (Ubuntu 24.04) |
+| `ov_msckf/src/ros/ROS2Visualizer.{h,cpp}` | Modified | Persistent worker thread; 20 ms stereo sync bound; `__has_include` guards |
+| `ov_msckf/src/ros/ROSVisualizerHelper.h` | Modified | `__has_include` guards for `tf2_geometry_msgs` |
+| `ov_msckf/src/core/VioManager.{h,cpp}` | Modified | SLAM recovery gate; 3-clock timing; feature count recording |
+| `ov_msckf/src/core/VioManagerOptions.h` | Modified | `slam_chi2_recovery`, `multi_threading_subs`, timing/feature-count knobs |
+| `config/euroc_mav/estimator_config.yaml` | Modified | New fork knobs exposed with defaults |
 | `ov_msckf/cmake/ROS2.cmake` | Modified | Added rosbag2_cpp dep and serial target |
 | `ov_msckf/package.xml` | Modified | Added rosbag2_cpp dependency |
 | `ov_msckf/launch/display.rviz` | Modified | ROS 2 plugin names |
