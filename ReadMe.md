@@ -55,20 +55,13 @@ When the SLAM feature state drops below 25% of `max_slam`, the chi-squared gate 
 
 - Verified: `colcon build --packages-select ov_msckf` passes on Ubuntu 22.04 / ROS 2 Humble (`rclcpp` 16.x) and Ubuntu 24.04 / ROS 2 Jazzy (`rclcpp` 28.x).
 
-### 8. Customizable RPE Segment Lengths
-**`ov_eval/src/error_singlerun.cpp`** — The Relative Pose Error (RPE) evaluation tool now accepts custom segment lengths as command-line arguments:
-```
-./error_singlerun <align_mode> <gt_file> <est_file> [seg1] [seg2] ... [segN]
-```
-Default segments remain `{8, 16, 24, 32, 40}` seconds when no arguments are given.
-
-### 9. Docker Images for Embedded Deployment
+### 8. Docker Images for Embedded Deployment
 - **`Dockerfile_ros2_humble_jammy`** — Ubuntu 22.04 + ROS 2 Humble, targeting RPi5 / Debian Trixie. Default-clones the `sync-max-interval-20ms` branch so the 20 ms bound ships enabled.
 - **`Dockerfile_ros2_jazzy_noble`** — Ubuntu 24.04 + ROS 2 Jazzy. Works with the `__has_include` / `RCLCPP_VERSION_GTE` guards above.
 
 Both use ccache and limit parallel builds to 2 workers for memory-constrained boards.
 
-### 10. RViz Configuration Updates
+### 9. RViz Configuration Updates
 - **`ov_msckf/launch/display.rviz`** — Updated plugin names from ROS 1 to ROS 2, simplified for Intel iGPU
 - **`ov_msckf/launch/display_minimal.rviz`** — New minimal config with only essential displays (Grid, TF, Paths, Points)
 
