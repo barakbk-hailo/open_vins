@@ -28,11 +28,24 @@
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/serialization.hpp>
 #include <rclcpp/serialized_message.hpp>
+#include <rclcpp/version.h>
 #include <rosbag2_cpp/reader.hpp>
 #include <rosbag2_storage/storage_filter.hpp>
 #include <rosbag2_storage/storage_options.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+
+// rosbag2 renamed SerializedBagMessage::time_stamp → recv_timestamp around Jazzy (rclcpp 28+).
+// Keep a single-source accessor so the rest of this file reads the same on both distros.
+namespace {
+inline rcutils_time_point_value_t bag_msg_time(const std::shared_ptr<rosbag2_storage::SerializedBagMessage> &m) {
+#if RCLCPP_VERSION_GTE(28, 0, 0)
+  return m->recv_timestamp;
+#else
+  return m->time_stamp;
+#endif
+}
+} // namespace
 
 #include "core/VioManager.h"
 #include "core/VioManagerOptions.h"
@@ -182,7 +195,7 @@ int main(int argc, char **argv) {
   int64_t max_camera_time_ns = -1;
   while (reader.has_next()) {
     auto bag_msg = reader.read_next();
-    if (bag_msg->time_stamp > time_finish_ns)
+    if (bag_msg_time(bag_msg) > time_finish_ns)
       break;
     bool is_imu = (bag_msg->topic_name == topic_imu);
     bool is_cam = false;
@@ -193,9 +206,9 @@ int main(int argc, char **argv) {
       }
     }
     if (is_imu || is_cam) {
-      msgs.push_back({bag_msg->topic_name, bag_msg->time_stamp, bag_msg});
+      msgs.push_back({bag_msg->topic_name, bag_msg_time(bag_msg), bag_msg});
       if (is_cam) {
-        max_camera_time_ns = std::max(max_camera_time_ns, bag_msg->time_stamp);
+        max_camera_time_ns = std::max(max_camera_time_ns, bag_msg_time(bag_msg));
       }
     }
   }
