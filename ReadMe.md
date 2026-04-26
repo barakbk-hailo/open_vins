@@ -37,7 +37,7 @@ Default segments remain `{8, 16, 24, 32, 40}` seconds when no arguments are give
 ### 4. SLAM Recovery (Chi-Squared Gate Relaxation)
 When the SLAM feature state drops below 25% of `max_slam`, the chi-squared gate is transiently relaxed by 3× to let more features in and break the empty-state feedback loop that otherwise keeps new SLAM features permanently rejected.
 
-- Opt-in via the **`slam_chi2_recovery`** YAML knob (default `true`), added to `VioManagerOptions.h` / `VioManager.cpp` / `config/euroc_mav/estimator_config.yaml`. Set to `false` for bit-identical comparisons with upstream behavior.
+- Gated by the **`slam_chi2_recovery`** YAML knob (default `false`), added to `VioManagerOptions.h` / `VioManager.cpp` / `config/euroc_mav/estimator_config.yaml`. Leave at the default `false` for offline serial replay and the paper Table II/III reproduction — chi2 relaxation interferes with stereo init on dark sequences (MH_05_difficult), and with the knob off all 10 EuRoC sequences × stereo+mono reproduce committed `results/{stereo,mono}/estimate_*.txt` bit-for-bit. Set to `true` for subscribe-mode deployment at >1× realtime on resource-constrained hardware: V1_03_difficult @ rate 2.0 shows worst-case ATE 3.7 m with `true` vs >50 m collapse with `false` in 2/3 runs — the safety net is meaningful under filter overload.
 
 ### 5. Three-Clock Timing + Feature Count Recording
 `VioManager::track_image_and_update()` records per-frame metrics to three separate CSVs plus a per-frame feature-count CSV. Useful for disentangling wall-clock jitter, process-CPU cost (across all threads), and thread-CPU cost (the VIO thread alone).
