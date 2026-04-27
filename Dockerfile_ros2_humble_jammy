@@ -43,7 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Clone OpenVINS
 RUN mkdir -p /opt/ros_ws/src && \
     cd /opt/ros_ws/src && \
-    git clone -b master-candidate https://github.com/barakbk-hailo/open_vins/
+    git clone -b master-candidate https://github.com/NadavHHailo/open_vins/
 
 # Build OpenVINS
 ARG PARALLEL_WORKERS=2

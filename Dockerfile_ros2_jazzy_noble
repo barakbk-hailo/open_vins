@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Clone and build OpenVINS
 RUN mkdir -p /workspace/catkin_ws_ov/src && \
     cd /workspace/catkin_ws_ov/src && \
-    git clone https://github.com/barakbk-hailo/open_vins/
+    git clone https://github.com/NadavHHailo/open_vins/
 
 # Additional ROS deps needed by ov_msckf (added after clone to preserve cache)
 RUN apt-get update && apt-get install -y --no-install-recommends \
