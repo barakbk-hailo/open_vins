@@ -203,11 +203,17 @@ protected:
   std::thread worker_thread;
   std::condition_variable worker_cv;
   std::mutex worker_mtx;
+  // The worker uses `latest_imu_timestamp > 0.0` as its CV predicate — once
+  // the first IMU arrives this stays true permanently and `wait()` returns
+  // immediately on every notify. That means BOTH IMU and camera callbacks
+  // notify, and the worker drains the camera queue as soon as a frame is
+  // pushed (subject to the IMU-cutoff time alignment). Switching to an
+  // edge-triggered `new_imu_pending` flag (with no camera-side notify) was
+  // tried in submodule commit 25d7697 and *regressed* subscribe overhead
+  // from 1.0× serial back to 1.7× — the busy-spin was load-bearing for
+  // throughput because it kept camera processing decoupled from the 200 Hz
+  // IMU cadence. Don't reintroduce edge-triggering without re-measuring.
   double latest_imu_timestamp = 0.0;
-  // Set true on each new IMU arrival, cleared by the worker after capturing the
-  // timestamp. Without this the CV predicate `latest_imu_timestamp > 0.0` stays
-  // permanently true after the first IMU and the worker hot-loops.
-  bool new_imu_pending = false;
   bool worker_should_exit = false;
   bool use_worker_thread = true;
 

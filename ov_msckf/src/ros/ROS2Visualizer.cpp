@@ -476,7 +476,6 @@ void ROS2Visualizer::callback_inertial(const sensor_msgs::msg::Imu::SharedPtr ms
     {
       std::lock_guard<std::mutex> lk(worker_mtx);
       latest_imu_timestamp = message.timestamp;
-      new_imu_pending = true;
     }
     worker_cv.notify_one();
   } else {
@@ -521,15 +520,20 @@ void ROS2Visualizer::processing_worker() {
 
   while (true) {
 
-    // Wait for new IMU data or shutdown signal
+    // Wait for new IMU data or shutdown signal. The predicate
+    // `latest_imu_timestamp > 0.0` becomes permanently true after the first
+    // IMU and `wait()` returns immediately on every notify; both IMU and
+    // camera callbacks notify, so the worker drains the camera queue as
+    // soon as frames are pushed (subject to IMU-cutoff time alignment).
+    // See ROS2Visualizer.h note for why this "busy-loop" pattern was
+    // measured to be faster than an edge-triggered alternative.
     double current_imu_ts;
     {
       std::unique_lock<std::mutex> lk(worker_mtx);
-      worker_cv.wait(lk, [this] { return worker_should_exit || new_imu_pending; });
+      worker_cv.wait(lk, [this] { return worker_should_exit || latest_imu_timestamp > 0.0; });
       if (worker_should_exit)
         return;
       current_imu_ts = latest_imu_timestamp;
-      new_imu_pending = false;
     }
 
     // Drain eligible frames from the camera queue
@@ -571,13 +575,14 @@ void ROS2Visualizer::callback_monocular(const sensor_msgs::msg::Image::SharedPtr
     message.masks.push_back(cv::Mat::zeros(cv_ptr->image.rows, cv_ptr->image.cols, CV_8UC1));
   }
 
-  // append it to our queue of images. The worker is woken by IMU arrivals only
-  // (the predicate flips on `new_imu_pending`), so no notify here.
+  // append it to our queue of images
   {
     std::lock_guard<std::mutex> lck(camera_queue_mtx);
     camera_queue.push_back(message);
     std::sort(camera_queue.begin(), camera_queue.end());
   }
+  if (use_worker_thread)
+    worker_cv.notify_one();
 }
 
 void ROS2Visualizer::callback_stereo(const sensor_msgs::msg::Image::ConstSharedPtr msg0, const sensor_msgs::msg::Image::ConstSharedPtr msg1,
@@ -628,13 +633,14 @@ void ROS2Visualizer::callback_stereo(const sensor_msgs::msg::Image::ConstSharedP
     message.masks.push_back(cv::Mat::zeros(cv_ptr1->image.rows, cv_ptr1->image.cols, CV_8UC1));
   }
 
-  // append it to our queue of images. The worker is woken by IMU arrivals only
-  // (the predicate flips on `new_imu_pending`), so no notify here.
+  // append it to our queue of images
   {
     std::lock_guard<std::mutex> lck(camera_queue_mtx);
     camera_queue.push_back(message);
     std::sort(camera_queue.begin(), camera_queue.end());
   }
+  if (use_worker_thread)
+    worker_cv.notify_one();
 }
 
 void ROS2Visualizer::publish_state() {
