@@ -204,6 +204,10 @@ protected:
   std::condition_variable worker_cv;
   std::mutex worker_mtx;
   double latest_imu_timestamp = 0.0;
+  // Set true on each new IMU arrival, cleared by the worker after capturing the
+  // timestamp. Without this the CV predicate `latest_imu_timestamp > 0.0` stays
+  // permanently true after the first IMU and the worker hot-loops.
+  bool new_imu_pending = false;
   bool worker_should_exit = false;
   bool use_worker_thread = true;
 

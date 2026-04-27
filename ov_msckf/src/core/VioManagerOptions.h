@@ -122,8 +122,10 @@ struct VioManagerOptions {
   /// falls below max_slam_features/4 features. Prevents the "empty-state -> reject
   /// every feature -> stay empty" feedback loop on stressed subscribe runs. See
   /// docs/determinism.md for the A/B experiment that justifies the default.
-  /// Default true; set false only for pre-commit-64cfe59 bit-identical replay.
-  bool slam_chi2_recovery = true;
+  /// Default false; flipped on 2026-04-26 after the recovery mechanism was shown
+  /// to mask scheduling jitter as feature loss. Set true only to re-enable the
+  /// safety net on heavily stressed subscribe runs.
+  bool slam_chi2_recovery = false;
 
   /**
    * @brief This function will load print out all estimator settings loaded.

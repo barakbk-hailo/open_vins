@@ -38,8 +38,8 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #else
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#endif
-#endif
+#endif // __has_include(tf2_geometry_msgs.hpp)
+#endif // ROS_AVAILABLE == 2
 
 namespace ov_type {
 class PoseJPL;

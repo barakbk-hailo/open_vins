@@ -56,7 +56,7 @@ When the SLAM feature state drops below 25% of `max_slam`, the chi-squared gate 
 - Verified: `colcon build --packages-select ov_msckf` passes on Ubuntu 22.04 / ROS 2 Humble (`rclcpp` 16.x) and Ubuntu 24.04 / ROS 2 Jazzy (`rclcpp` 28.x).
 
 ### 8. Docker Images for Embedded Deployment
-- **`Dockerfile_ros2_humble_jammy`** — Ubuntu 22.04 + ROS 2 Humble, targeting RPi5 / Debian Trixie. Default-clones the `sync-max-interval-20ms` branch so the 20 ms bound ships enabled.
+- **`Dockerfile_ros2_humble_jammy`** — Ubuntu 22.04 + ROS 2 Humble, targeting RPi5 / Debian Trixie. Default-clones the `master-candidate` branch so the 20 ms stereo sync bound and other release-candidate fixes ship enabled.
 - **`Dockerfile_ros2_jazzy_noble`** — Ubuntu 24.04 + ROS 2 Jazzy. Works with the `__has_include` / `RCLCPP_VERSION_GTE` guards above.
 
 Both use ccache and limit parallel builds to 2 workers for memory-constrained boards.
@@ -72,7 +72,7 @@ Both use ccache and limit parallel builds to 2 workers for memory-constrained bo
 | `ov_msckf/src/ros2_serial_msckf.cpp` | Added | Serial (offline) VIO node; dual-distro `bag_msg_time()` |
 | `ov_msckf/launch/serial.launch.py` | Added | Launch config for serial node |
 | `ov_msckf/launch/display_minimal.rviz` | Added | Minimal RViz config |
-| `Dockerfile_ros2_humble_jammy` | Added | Docker for Humble + RPi5; clones `sync-max-interval-20ms` by default |
+| `Dockerfile_ros2_humble_jammy` | Added | Docker for Humble + RPi5; clones `master-candidate` by default |
 | `Dockerfile_ros2_jazzy_noble` | Added | Docker for Jazzy (Ubuntu 24.04) |
 | `ov_msckf/src/ros/ROS2Visualizer.{h,cpp}` | Modified | Persistent worker thread; 20 ms stereo sync bound; `__has_include` guards |
 | `ov_msckf/src/ros/ROSVisualizerHelper.h` | Modified | `__has_include` guards for `tf2_geometry_msgs` |
