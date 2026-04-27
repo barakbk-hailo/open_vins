@@ -3,6 +3,13 @@
 > **This is a fork of [rpng/open_vins](https://github.com/rpng/open_vins)** maintained by Hailo for benchmarking VIO performance on embedded platforms (Raspberry Pi 5).
 > The upstream README follows below. See [Fork Changes](#fork-changes) for what was added.
 
+> **Reproducing the benchmarks:** this repo is consumed as a submodule by the
+> workspace at [NadavHHailo/openvins-ros2-workspace](https://github.com/NadavHHailo/openvins-ros2-workspace).
+> The workspace owns the build/run docs (`docs/`), benchmark orchestrator
+> (`scripts/run_full_benchmark.sh` with `--rate`, `--docker`, `--slam-chi2-recovery`),
+> EuRoC bag layout, and the committed `results/` data — start there if you
+> want to re-run anything described below.
+
 [![ROS 1 Workflow](https://github.com/rpng/open_vins/actions/workflows/build_ros1.yml/badge.svg)](https://github.com/rpng/open_vins/actions/workflows/build_ros1.yml)
 [![ROS 2 Workflow](https://github.com/rpng/open_vins/actions/workflows/build_ros2.yml/badge.svg)](https://github.com/rpng/open_vins/actions/workflows/build_ros2.yml)
 [![ROS Free Workflow](https://github.com/rpng/open_vins/actions/workflows/build.yml/badge.svg)](https://github.com/rpng/open_vins/actions/workflows/build.yml)
